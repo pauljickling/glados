@@ -78,6 +78,47 @@ services:
       - "host.docker.internal:host-gateway"
     restart: always
 
+  loki:
+    profiles: ["production"]
+    image: grafana/loki:latest
+    ports:
+      - "3100"
+    volumes:
+      # directory must be created first, with uid:gid 10001:10001
+      - ./volumes/loki:/loki
+    networks:
+      - glados-net
+    restart: always
+
+  promtail:
+    profiles: ["production"]
+    image: grafana/promtail:latest
+    volumes:
+      # custom config will read logs from the containers
+      - ./loki/promtail-config.yaml:/etc/promtail/config.yml
+      # read container labels and logs
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/containers:/var/lib/docker/containers
+    networks:
+      - glados-net
+    restart: always
+
+  # will be available at http://127.0.0.1:3000
+  # default credentials: admin/admin
+  grafana:
+    profiles: ["production"]
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      # directory must be created first, with uid:gid 472:472
+      - ./volumes/grafana:/var/lib/grafana
+      # automatically configure the loki datasource
+      - ./loki/grafana/provisioning/:/etc/grafana/provisioning/
+    networks:
+      - glados-net
+    restart: always
+
 networks:
   glados-net:
     driver: bridge
